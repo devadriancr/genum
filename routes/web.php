@@ -3,9 +3,7 @@
 use App\Http\Controllers\PartNumberController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [PartNumberController::class, 'import']);
 
 Route::middleware([
     'auth:sanctum',
