@@ -26,7 +26,7 @@
                 <!-- Campo de selección de archivo -->
                 <div class="mb-6">
                     <label for="file" class="block text-gray-700 dark:text-gray-300 font-medium mb-2 text-lg">Seleccionar archivo</label>
-                    <input type="file" id="file" name="file" accept=".xlsx,.xls,.csv"
+                    <input type="file" id="file_excel" name="file_excel" accept=".xlsx,.xls,.csv"
                         class="block w-full text-gray-700 dark:text-white bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-300 ease-in-out" required>
                 </div>
 

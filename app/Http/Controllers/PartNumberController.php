@@ -81,7 +81,7 @@ class PartNumberController extends Controller
     {
         $startTime = Carbon::now();
 
-        $path = $request->file('file')->getRealPath();
+        $path = $request->file('file_excel');
 
         Excel::import(new PartNumbersImport, $path);
 
