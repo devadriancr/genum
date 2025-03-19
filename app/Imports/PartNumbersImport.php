@@ -2,35 +2,86 @@
 
 namespace App\Imports;
 
-use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use PhpOffice\PhpSpreadsheet\Shared\Date;
+use App\Models\YMCOM;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
-class PartNumbersImport implements ToCollection, WithHeadingRow
+class PartNumbersImport implements WithMultipleSheets
 {
-    public static $data = [];
+    public static $forecastData = [];
+    public static $stockData = [];
+    public static $containersData = [];
 
     /**
-     * @param Collection $collection
+     *
      */
-    public function collection(Collection $collection)
+    public function sheets(): array
     {
-        self::$data = [];
-
-        foreach ($collection as $row) {
-            self::$data[] = [
-                'part_number' => $row['part_number'],
-                'required_quantity' => $row['required_quantity'],
-                'required_date' => Date::excelToDateTimeObject($row['required_date'])
-                    ->modify('-2 days')
-                    ->format('Y-m-d')
-            ];
-        }
+        return [
+            'Forecast' => new ForecastSheetImport(),
+            'Stock' => new StockSheetImport(),
+            'Containers' => new ContainersSheetImport(),
+        ];
     }
 
-    public static function getData()
+    public static function getForecastData()
     {
-        return self::$data;
+        $parentPartNumbers = self::$forecastData;
+
+        $allChildren = collect();
+
+        // Recorremos cada número de parte
+        foreach ($parentPartNumbers as $key => $parentPartNumber) {
+            $children = YMCOM::getChildren(
+                $parentPartNumber['part_number'],
+                $parentPartNumber['required_quantity'],
+                $parentPartNumber['required_date']
+            );
+
+            foreach ($children as $child) {
+                // Filtramos solo los campos que necesitamos
+                $filteredChild = [
+                    'part_number' => $child['MCCPRO'],  // Guardamos 'MCCPRO' como 'part_number'
+                    'required_quantity' => $child['MCQREQ'],  // Guardamos 'MCQREQ' como 'required_quantity'
+                    'required_date' => $child['required_date'],  // Usamos el campo 'required_date' directamente
+                ];
+
+                // Solo agregamos el niño si tiene los campos requeridos
+                if (isset($filteredChild['part_number']) && isset($filteredChild['required_quantity']) && isset($filteredChild['required_date'])) {
+                    $allChildren->push($filteredChild);
+                }
+            }
+        }
+
+        $groupedByPartNumberAndDate = $allChildren->groupBy(function ($item) {
+            return $item['part_number'] . '-' . $item['required_date'];
+        });
+
+
+        $finalResult = $groupedByPartNumberAndDate->map(function ($group) {
+            $totalQuantity = $group->sum('required_quantity');  // Sumamos la cantidad de los hijos con la misma fecha
+            $child = $group->first();
+            $child['required_quantity'] = $totalQuantity;
+            return $child;
+        });
+
+        $result = $finalResult->values();
+
+        return $result;
+    }
+
+    /**
+     *
+     */
+    public static function getStockData()
+    {
+        return self::$stockData;
+    }
+
+    /**
+     *
+     */
+    public static function getContainersData()
+    {
+        return self::$containersData;
     }
 }
