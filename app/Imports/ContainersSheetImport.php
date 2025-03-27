@@ -25,13 +25,5 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
                     ->format('Y-m-d'),
             ];
         }
-
-        $groupedByDate = collect(PartNumbersImport::$containersData)->groupBy('availability_date');
-
-        $groupedByDateAndContainer = $groupedByDate->map(function ($dateGroup) {
-            return $dateGroup->groupBy('container');
-        });
-
-        PartNumbersImport::$containersData = $groupedByDateAndContainer;
     }
 }

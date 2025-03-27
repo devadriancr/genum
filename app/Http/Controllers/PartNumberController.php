@@ -90,14 +90,7 @@ class PartNumberController extends Controller
         $getForecastData = PartNumbersImport::getForecastData();
         $getStockData = PartNumbersImport::getStockData();
         $getContainersData = PartNumbersImport::getContainersData();
-
-        // if (!is_array($getForecastData)) {
-        //     $getForecastData = [$getForecastData];
-        // }
-
-        // if (!is_array($getStockData)) {
-        //     $getStockData = [$getStockData];
-        // }
+        $getPartNumbersData = PartNumbersImport::getPartNumbersData();
 
         if (!is_array($getContainersData)) {
             $getContainersData = [$getContainersData];
@@ -107,6 +100,7 @@ class PartNumberController extends Controller
             'forecast_data' => $getForecastData,
             'stock_data' => $getStockData,
             'containers_data' => $getContainersData,
+            'allowed_part_numbers' => $getPartNumbersData
         ];
 
         $endTime = Carbon::now();

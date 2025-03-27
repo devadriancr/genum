@@ -10,6 +10,7 @@ class PartNumbersImport implements WithMultipleSheets
     public static $forecastData = [];
     public static $stockData = [];
     public static $containersData = [];
+    public static  $partNumbersData = [];
 
     /**
      *
@@ -20,6 +21,7 @@ class PartNumbersImport implements WithMultipleSheets
             'Forecast' => new ForecastSheetImport(),
             'Stock' => new StockSheetImport(),
             'Containers' => new ContainersSheetImport(),
+            'Numbers' => new PartNumbersSheetImport(),
         ];
     }
 
@@ -83,5 +85,12 @@ class PartNumbersImport implements WithMultipleSheets
     public static function getContainersData()
     {
         return self::$containersData;
+    }
+
+    /**
+     *
+     */
+    public static function getPartNumbersData(){
+        return self::$partNumbersData;
     }
 }
