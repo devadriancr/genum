@@ -82,51 +82,71 @@ class PartNumberController extends Controller
     public function upload(Request $request)
     {
         $startTime = Carbon::now();
+        Log::info('Inicio de la carga del archivo Excel.');
 
+        // Obtener el archivo
         $path = $request->file('file_excel');
-
-        Excel::import(new PartNumbersImport, $path);
-
-        $getForecastData = PartNumbersImport::getForecastData();
-        $getStockData = PartNumbersImport::getStockData();
-        $getContainersData = PartNumbersImport::getContainersData();
-        $getPartNumbersData = PartNumbersImport::getPartNumbersData();
-
-        if (!is_array($getContainersData)) {
-            $getContainersData = [$getContainersData];
-        }
-
-        $combinedData = [
-            'forecast_data' => $getForecastData,
-            'stock_data' => $getStockData,
-            'containers_data' => $getContainersData,
-            'allowed_part_numbers' => $getPartNumbersData
-        ];
-
-        $endTime = Carbon::now();
-        $diff = $startTime->diff($endTime);
-
-        Log::alert("Diferencia: {$diff->h} horas, {$diff->i} minutos, {$diff->s} segundos, " . $diff->f * 1000 . " milisegundos.");
-
-        $client = new Client();
+        Log::info('Archivo recibido: ' . $path->getClientOriginalName());
 
         try {
-            // Realizar la petición POST a la API de FastAPI (ajusta la URL y el endpoint según corresponda)
-            $response = $client->post('http://10.1.51.200:8000/procesar_json/', [
-                'json' => $combinedData,  // Se envía el JSON directamente
-                'timeout' => 60,  // Tiempo máximo de espera en segundos
-            ]);
+            // Realizar la importación
+            Log::info('Iniciando la importación de datos desde el archivo Excel...');
+            Excel::import(new PartNumbersImport, $path);
+            Log::info('Importación completada.');
 
-            // Convertir la respuesta en JSON
-            $responseData = json_decode($response->getBody(), true);
+            // Obtener los datos
+            Log::info('Obteniendo datos de la importación...');
+            $getForecastData = PartNumbersImport::getForecastData();
+            $getStockData = PartNumbersImport::getStockData();
+            $getContainersData = PartNumbersImport::getContainersData();
+            $getPartNumbersData = PartNumbersImport::getPartNumbersData();
 
-            // Retornar la respuesta de la API de FastAPI (opcionalmente puedes devolverla a tu frontend)
-            return response()->json([
-                'success' => true,
-                'data' => $responseData
-            ]);
+            // Verificar si los datos de containers son un array
+            if (!is_array($getContainersData)) {
+                Log::info('Los datos de containers no son un array, convirtiendo...');
+                $getContainersData = [$getContainersData];
+            }
+
+            // Combinar los datos
+            $combinedData = [
+                'forecast_data' => $getForecastData,
+                'stock_data' => $getStockData,
+                'containers_data' => $getContainersData,
+                'allowed_part_numbers' => $getPartNumbersData
+            ];
+            Log::info('Datos combinados listos para enviar a la API.', ['combined_data' => $combinedData]);
+
+            // Calcular el tiempo transcurrido
+            $endTime = Carbon::now();
+            $diff = $startTime->diff($endTime);
+            Log::alert("Diferencia: {$diff->h} horas, {$diff->i} minutos, {$diff->s} segundos, " . $diff->f * 1000 . " milisegundos.");
+
+            // Enviar la petición POST a la API de FastAPI
+            $client = new Client();
+            Log::info('Enviando datos a la API de FastAPI...');
+
+            try {
+                $response = $client->post('http://10.1.51.200:8000/procesar_json/', [
+                    'json' => $combinedData,
+                    'timeout' => 60,
+                ]);
+
+                Log::info('Respuesta de la API recibida.', ['response_data' => $response->getBody()]);
+                $responseData = json_decode($response->getBody(), true);
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $responseData
+                ]);
+            } catch (\Exception $apiException) {
+                Log::error('Error al hacer la petición a la API de FastAPI.', ['error' => $apiException->getMessage()]);
+                return response()->json([
+                    'success' => false,
+                    'error' => $apiException->getMessage()
+                ], 500);
+            }
         } catch (\Exception $e) {
-            // En caso de error, devolver el error
+            Log::error('Error en el proceso de carga y procesamiento de datos.', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage()
