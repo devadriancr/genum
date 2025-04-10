@@ -33,6 +33,7 @@ class PartNumbersImport implements WithMultipleSheets
 
         // Recorremos cada número de parte
         foreach ($parentPartNumbers as $key => $parentPartNumber) {
+
             $children = YMCOM::getChildren(
                 $parentPartNumber['part_number'],
                 $parentPartNumber['required_quantity'],

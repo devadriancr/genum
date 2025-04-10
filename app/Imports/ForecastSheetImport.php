@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -22,7 +23,22 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
 
             foreach ($row as $key => $value) {
                 if ($key != 'part_number' && $value) {
-                    $requiredDate = Date::excelToDateTimeObject($key)->modify('-2 days')->format('Y-m-d');
+
+                    $date = Date::excelToDateTimeObject($key);
+
+                    $daysToGoBack = 2;
+                    $rewoundDays = 0;
+
+                    while ($rewoundDays < $daysToGoBack) {
+                        $date->modify('-1 day');
+                        $weekDay = $date->format('N');
+
+                        if ($weekDay <= 5) {
+                            $rewoundDays++;
+                        }
+                    }
+
+                    $requiredDate = $date->format('Y-m-d');
 
                     PartNumbersImport::$forecastData[] = [
                         'part_number' => $partNumber,
