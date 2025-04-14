@@ -10,7 +10,6 @@ class PartNumbersImport implements WithMultipleSheets
     public static $forecastData = [];
     public static $stockData = [];
     public static $containersData = [];
-    public static  $partNumbersData = [];
 
     /**
      *
@@ -21,7 +20,6 @@ class PartNumbersImport implements WithMultipleSheets
             'Forecast' => new ForecastSheetImport(),
             'Stock' => new StockSheetImport(),
             'Containers' => new ContainersSheetImport(),
-            'Numbers' => new PartNumbersSheetImport(),
         ];
     }
 
@@ -31,7 +29,6 @@ class PartNumbersImport implements WithMultipleSheets
 
         $allChildren = collect();
 
-        // Recorremos cada número de parte
         foreach ($parentPartNumbers as $key => $parentPartNumber) {
 
             $children = YMCOM::getChildren(
@@ -41,11 +38,10 @@ class PartNumbersImport implements WithMultipleSheets
             );
 
             foreach ($children as $child) {
-                // Filtramos solo los campos que necesitamos
                 $filteredChild = [
-                    'part_number' => $child['MCCPRO'],  // Guardamos 'MCCPRO' como 'part_number'
-                    'required_quantity' => $child['MCQREQ'],  // Guardamos 'MCQREQ' como 'required_quantity'
-                    'required_date' => $child['required_date'],  // Usamos el campo 'required_date' directamente
+                    'part_number' => $child['MCCPRO'],
+                    'required_quantity' => $child['MCQREQ'],
+                    'required_date' => $child['required_date'],
                 ];
 
                 // Solo agregamos el niño si tiene los campos requeridos
@@ -61,7 +57,7 @@ class PartNumbersImport implements WithMultipleSheets
 
 
         $finalResult = $groupedByPartNumberAndDate->map(function ($group) {
-            $totalQuantity = $group->sum('required_quantity');  // Sumamos la cantidad de los hijos con la misma fecha
+            $totalQuantity = $group->sum('required_quantity');
             $child = $group->first();
             $child['required_quantity'] = $totalQuantity;
             return $child;
@@ -86,12 +82,5 @@ class PartNumbersImport implements WithMultipleSheets
     public static function getContainersData()
     {
         return self::$containersData;
-    }
-
-    /**
-     *
-     */
-    public static function getPartNumbersData(){
-        return self::$partNumbersData;
     }
 }
