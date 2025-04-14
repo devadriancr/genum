@@ -99,7 +99,6 @@ class PartNumberController extends Controller
             $getForecastData = PartNumbersImport::getForecastData();
             $getStockData = PartNumbersImport::getStockData();
             $getContainersData = PartNumbersImport::getContainersData();
-            $getPartNumbersData = PartNumbersImport::getPartNumbersData();
 
             // Verificar si los datos de containers son un array
             if (!is_array($getContainersData)) {
@@ -111,10 +110,9 @@ class PartNumberController extends Controller
             $combinedData = [
                 'forecast_data' => $getForecastData,
                 'stock_data' => $getStockData,
-                'containers_data' => $getContainersData,
-                'allowed_part_numbers' => $getPartNumbersData
+                'containers_data' => $getContainersData
             ];
-            Log::info('Datos combinados listos para enviar a la API.', ['combined_data' => $combinedData]);
+            // Log::info('Datos combinados listos para enviar a la API.', ['combined_data' => $combinedData]);
 
             // Calcular el tiempo transcurrido
             $endTime = Carbon::now();
