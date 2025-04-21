@@ -14,7 +14,6 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
      */
     public function collection(Collection $collection)
     {
-        // Array para agrupar por contenedor y fecha
         $groupedData = [];
 
         foreach ($collection as $row) {
@@ -23,7 +22,6 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
             $partNumber = $row['part_number'];
             $quantity = $row['quantity'];
 
-            // Creamos una clave única combinando container_id y fecha
             $compositeKey = $containerId . '|' . $availabilityDate;
 
             // Inicializamos la estructura si no existe
@@ -35,7 +33,6 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
                 ];
             }
 
-            // Buscamos si la parte ya existe en este grupo
             $partFound = false;
             foreach ($groupedData[$compositeKey]['parts'] as &$part) {
                 if ($part['part_number'] === $partNumber) {
@@ -45,7 +42,6 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
                 }
             }
 
-            // Si no encontramos la parte, la añadimos
             if (!$partFound) {
                 $groupedData[$compositeKey]['parts'][] = [
                     'part_number' => $partNumber,

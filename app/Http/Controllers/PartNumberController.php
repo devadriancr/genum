@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\DataSelectionExport;
 use App\Imports\PartNumbersImport;
 use App\Models\YMCOM;
 use Carbon\Carbon;
@@ -126,29 +127,29 @@ class PartNumberController extends Controller
             try {
                 $response = $client->post('http://10.1.51.200:8000/procesar_json/', [
                     'json' => $combinedData,
-                    'timeout' => 60,
+                    'timeout' => 900,
+                    'connect_timeout' => 60,
                 ]);
 
-                Log::info('Respuesta de la API recibida.', ['response_data' => $response->getBody()]);
                 $responseData = json_decode($response->getBody(), true);
 
-                return response()->json([
-                    'success' => true,
-                    'data' => $responseData
-                ]);
+                return Excel::download(
+                    new DataSelectionExport($responseData),
+                    'genum_' . now()->format('dmYHis') . '.xlsx'
+                );
             } catch (\Exception $apiException) {
                 Log::error('Error al hacer la petición a la API de FastAPI.', ['error' => $apiException->getMessage()]);
-                return response()->json([
-                    'success' => false,
-                    'error' => $apiException->getMessage()
-                ], 500);
+//                return response()->json([
+//                    'success' => false,
+//                    'error' => $apiException->getMessage()
+//                ], 500);
             }
         } catch (\Exception $e) {
             Log::error('Error en el proceso de carga y procesamiento de datos.', ['error' => $e->getMessage()]);
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
+//            return response()->json([
+//                'success' => false,
+//                'error' => $e->getMessage()
+//            ], 500);
         }
     }
 }
