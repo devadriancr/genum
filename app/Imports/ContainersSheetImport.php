@@ -18,6 +18,11 @@ class ContainersSheetImport implements ToCollection, WithHeadingRow
 
         foreach ($collection as $row) {
             $containerId = $row['container'];
+
+            if (str_starts_with($containerId, 'AD')) {
+                continue;
+            }
+
             $availabilityDate = Date::excelToDateTimeObject($row['availability_date'])->format('Y-m-d');
             $partNumber = $row['part_number'];
             $quantity = $row['quantity'];
