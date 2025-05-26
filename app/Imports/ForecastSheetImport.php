@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -24,11 +25,15 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
             $dates = [];
             foreach ($row as $key => $value) {
                 if ($key != 'part_number') {
-                    $dates[] = [
-                        'date' => Date::excelToDateTimeObject($key),
-                        'key' => $key,
-                        'value' => $value
-                    ];
+                    $dateObj = $this->parseDate($key);
+
+                    if ($dateObj) {
+                        $dates[] = [
+                            'date' => $dateObj,
+                            'key' => $key,
+                            'value' => $value
+                        ];
+                    }
                 }
             }
 
@@ -49,11 +54,11 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
                     $totalDaysToGoBack = $baseDaysToGoBack + $additionalDays;
 
                     // Aplicar retroceso
-                    $adjustedDate = clone $currentDate;
+                    $adjustedDate = $currentDate->copy();
                     $rewoundDays = 0;
 
                     while ($rewoundDays < $totalDaysToGoBack) {
-                        $adjustedDate->modify('-1 day');
+                        $adjustedDate->subDay();
                         $adjustedWeekDay = $adjustedDate->format('N');
 
                         if ($adjustedWeekDay <= 5) { // Solo días hábiles
@@ -78,6 +83,59 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Convierte cualquier formato de fecha a Carbon
+     */
+    private function parseDate($dateInput)
+    {
+        try {
+            // Si es un número (fecha serial de Excel)
+            if (is_numeric($dateInput)) {
+                return Carbon::instance(Date::excelToDateTimeObject($dateInput));
+            }
+
+            // Si es un string, intentar parsearlo
+            if (is_string($dateInput)) {
+                // Configurar Carbon para español
+                Carbon::setLocale('es');
+
+                // Intentar varios formatos comunes
+                $formats = [
+                    'd-M',      // 10-jun
+                    'd-m',      // 10-06
+                    'd/m',      // 10/06
+                    'd-M-Y',    // 10-jun-2024
+                    'd/m/Y',    // 10/06/2024
+                    'Y-m-d',    // 2024-06-10
+                ];
+
+                foreach ($formats as $format) {
+                    try {
+                        $date = Carbon::createFromFormat($format, $dateInput);
+
+                        // Si no se especifica año, usar el año actual
+                        if (!strpos($format, 'Y')) {
+                            $date->year(date('Y'));
+                        }
+
+                        return $date;
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+
+                // Como último recurso, intentar parse automático
+                return Carbon::parse($dateInput);
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            // Log del error si es necesario
+            Log::warning("No se pudo parsear la fecha: " . $dateInput . " - Error: " . $e->getMessage());
+            return null;
         }
     }
 }
