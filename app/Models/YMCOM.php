@@ -33,7 +33,7 @@ class YMCOM extends Model
 
         // Usar cache para almacenar los resultados de los hijos (15 minutos)
         $cacheKey = "children_{$parentPartNumber}";
-        $children = cache()->remember($cacheKey, now()->addMinutes(15), function () use ($parentPartNumber) {
+        $children = cache()->remember($cacheKey, now()->addMinutes(30), function () use ($parentPartNumber) {
             return self::whereRaw('TRIM(MCFPRO) = ?', [$parentPartNumber])->get();
         });
 

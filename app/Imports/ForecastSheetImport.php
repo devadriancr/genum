@@ -18,72 +18,95 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
     {
         PartNumbersImport::$forecastData = [];
 
-        foreach ($collection as $row) {
-            $partNumber = $row['part_number'];
+        // Obtener todas las fechas de los encabezados (excluyendo part_number)
+        $dateColumns = [];
+        $firstRow = $collection->first();
 
-            // Obtener y ordenar todas las fechas
-            $dates = [];
-            foreach ($row as $key => $value) {
-                if ($key != 'part_number') {
-                    $dateObj = $this->parseDate($key);
-
-                    if ($dateObj) {
-                        $dates[] = [
-                            'date' => $dateObj,
-                            'key' => $key,
-                            'value' => $value
-                        ];
-                    }
-                }
-            }
-
-            usort($dates, function($a, $b) {
-                return $a['date'] <=> $b['date'];
-            });
-
-            // Variables para controlar el retroceso
-            $baseDaysToGoBack = 3; // 1 día hábil + 2 de fin de semana
-            $additionalDays = 0;
-
-            foreach ($dates as $item) {
-                $currentDate = $item['date'];
-                $weekDay = $currentDate->format('N');
-
-                if ($item['value']) {
-                    // Calcular retroceso total
-                    $totalDaysToGoBack = $baseDaysToGoBack + $additionalDays;
-
-                    // Aplicar retroceso
-                    $adjustedDate = $currentDate->copy();
-                    $rewoundDays = 0;
-
-                    while ($rewoundDays < $totalDaysToGoBack) {
-                        $adjustedDate->subDay();
-                        $adjustedWeekDay = $adjustedDate->format('N');
-
-                        if ($adjustedWeekDay <= 5) { // Solo días hábiles
-                            $rewoundDays++;
-                        }
-                    }
-
-                    // Guardar resultado
-                    PartNumbersImport::$forecastData[] = [
-                        'part_number' => $partNumber,
-                        'required_quantity' => $item['value'],
-                        'required_date' => $adjustedDate->format('Y-m-d'),
-                        'original_date' => $currentDate->format('Y-m-d'),
+        foreach ($firstRow as $key => $value) {
+            if ($key != 'part_number' && $value != '') {
+                $dateObj = $this->parseDate($key);
+                if ($dateObj) {
+                    $dateColumns[] = [
+                        'key' => $key,
+                        'date' => $dateObj
                     ];
-
-                    // Reiniciar días adicionales después de usarlos
-                    $additionalDays = 0;
-                } else {
-                    // Si es cero y día hábil, sumar 1 día adicional
-                    if ($weekDay <= 5) {
-                        $additionalDays++;
-                    }
                 }
             }
         }
+
+        // Ordenar fechas cronológicamente
+        usort($dateColumns, function($a, $b) {
+            return $a['date'] <=> $b['date'];
+        });
+
+        // Variable para controlar cuántos días se han "liberado" por fechas omitidas
+        $daysToMoveBack = 0;
+
+        foreach ($dateColumns as $dateColumn) {
+            $dateKey = $dateColumn['key'];
+            $originalDate = $dateColumn['date'];
+
+            // Verificar si TODA la columna está en cero
+            $hasAnyData = false;
+            foreach ($collection as $row) {
+                if (isset($row[$dateKey]) && $row[$dateKey] > 0) {
+                    $hasAnyData = true;
+                    break;
+                }
+            }
+
+            if (!$hasAnyData) {
+                // Si toda la columna está en cero, incrementamos los días para retroceder
+                // Solo si es día hábil
+                if ($originalDate->format('N') <= 5) {
+                    $daysToMoveBack++;
+                }
+                continue; // Saltamos esta fecha
+            }
+
+            // Si llegamos aquí, la fecha tiene datos
+            // Calculamos la fecha ajustada: 3 días hábiles atrás + días acumulados por fechas omitidas
+            $totalDaysToGoBack = 3 + $daysToMoveBack;
+
+            $adjustedDate = $this->subtractBusinessDays($originalDate, $totalDaysToGoBack);
+
+            // Procesar todos los part numbers para esta fecha
+            foreach ($collection as $row) {
+                $partNumber = $row['part_number'];
+                $quantity = $row[$dateKey] ?? 0;
+
+                // Guardamos el registro incluso si quantity es 0
+                // (según tu lógica original, se procesan todos los valores)
+                if ($quantity > 0) {
+                    PartNumbersImport::$forecastData[] = [
+                        'part_number' => $partNumber,
+                        'required_quantity' => $quantity,
+                        'required_date' => $adjustedDate->format('Y-m-d'),
+                        'original_date' => $originalDate->format('Y-m-d'),
+                    ];
+                }
+            }
+        }
+    }
+
+    /**
+     * Resta días hábiles (excluyendo fines de semana)
+     */
+    private function subtractBusinessDays(Carbon $date, int $days)
+    {
+        $adjustedDate = $date->copy();
+        $businessDaysSubtracted = 0;
+
+        while ($businessDaysSubtracted < $days) {
+            $adjustedDate->subDay();
+
+            // Si es día hábil (lunes=1 a viernes=5)
+            if ($adjustedDate->format('N') <= 5) {
+                $businessDaysSubtracted++;
+            }
+        }
+
+        return $adjustedDate;
     }
 
     /**
@@ -104,12 +127,12 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
 
                 // Intentar varios formatos comunes
                 $formats = [
-                    'd-M',      // 10-jun
-                    'd-m',      // 10-06
-                    'd/m',      // 10/06
-                    'd-M-Y',    // 10-jun-2024
-                    'd/m/Y',    // 10/06/2024
-                    'Y-m-d',    // 2024-06-10
+                    'd/m/Y',    // 19/06/2025
+                    'd-M-Y',    // 19-jun-2025
+                    'd-M',      // 19-jun
+                    'd-m',      // 19-06
+                    'd/m',      // 19/06
+                    'Y-m-d',    // 2025-06-19
                 ];
 
                 foreach ($formats as $format) {
@@ -133,7 +156,6 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
 
             return null;
         } catch (\Exception $e) {
-            // Log del error si es necesario
             Log::warning("No se pudo parsear la fecha: " . $dateInput . " - Error: " . $e->getMessage());
             return null;
         }

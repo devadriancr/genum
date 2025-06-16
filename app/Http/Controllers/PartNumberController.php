@@ -125,7 +125,7 @@ class PartNumberController extends Controller
             Log::info('Enviando datos a la API de FastAPI...');
 
             try {
-                $response = $client->post('http://10.1.51.200:8000/procesar_json/', [
+                $response = $client->post('http://192.168.130.49:9092/procesar_json/', [
                     'json' => $combinedData,
                     'timeout' => 900,
                     'connect_timeout' => 60,
