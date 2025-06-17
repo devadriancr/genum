@@ -83,27 +83,27 @@ class PartNumberController extends Controller
     public function upload(Request $request)
     {
         $startTime = Carbon::now();
-        Log::info('Inicio de la carga del archivo Excel.');
+        // Log::info('Inicio de la carga del archivo Excel.');
 
         // Obtener el archivo
         $path = $request->file('file_excel');
-        Log::info('Archivo recibido: ' . $path->getClientOriginalName());
+        // Log::info('Archivo recibido: ' . $path->getClientOriginalName());
 
         try {
             // Realizar la importación
-            Log::info('Iniciando la importación de datos desde el archivo Excel...');
+           // Log::info('Iniciando la importación de datos desde el archivo Excel...');
             Excel::import(new PartNumbersImport, $path);
-            Log::info('Importación completada.');
+            // Log::info('Importación completada.');
 
             // Obtener los datos
-            Log::info('Obteniendo datos de la importación...');
+            // Log::info('Obteniendo datos de la importación...');
             $getForecastData = PartNumbersImport::getForecastData();
             $getStockData = PartNumbersImport::getStockData();
             $getContainersData = PartNumbersImport::getContainersData();
 
             // Verificar si los datos de containers son un array
             if (!is_array($getContainersData)) {
-                Log::info('Los datos de containers no son un array, convirtiendo...');
+                // Log::info('Los datos de containers no son un array, convirtiendo...');
                 $getContainersData = [$getContainersData];
             }
 
@@ -113,7 +113,10 @@ class PartNumberController extends Controller
                 'stock_data' => $getStockData,
                 'containers_data' => $getContainersData
             ];
-            // Log::info('Datos combinados listos para enviar a la API.', ['combined_data' => $combinedData]);
+
+            $prettyJson = json_encode($combinedData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+            Log::info("Datos combinados listos para enviar a la API:\n" . $prettyJson);
 
             // Calcular el tiempo transcurrido
             $endTime = Carbon::now();
@@ -122,7 +125,7 @@ class PartNumberController extends Controller
 
             // Enviar la petición POST a la API de FastAPI
             $client = new Client();
-            Log::info('Enviando datos a la API de FastAPI...');
+            // Log::info('Enviando datos a la API de FastAPI...');
 
             try {
                 $response = $client->post('http://192.168.130.49:9092/procesar_json/', [
