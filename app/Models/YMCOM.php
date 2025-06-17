@@ -31,7 +31,7 @@ class YMCOM extends Model
         // Agregar el número de parte actual a la lista de procesados
         $processed[] = $parentPartNumber;
 
-        // Usar cache para almacenar los resultados de los hijos (15 minutos)
+        // Usar cache para almacenar los resultados de los hijos (30 minutos)
         $cacheKey = "children_{$parentPartNumber}";
         $children = cache()->remember($cacheKey, now()->addMinutes(30), function () use ($parentPartNumber) {
             return self::whereRaw('TRIM(MCFPRO) = ?', [$parentPartNumber])->get();
