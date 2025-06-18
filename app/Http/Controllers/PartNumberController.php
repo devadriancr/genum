@@ -82,34 +82,59 @@ class PartNumberController extends Controller
      */
     public function upload(Request $request)
     {
+        $validated = $request->validate([
+            'file_excel' => 'required|file|mimes:xlsx,xls,csv',
+            'stock_days' => 'required|integer|min:1|max:10'
+        ], [
+            'file_excel.required' => 'Por favor selecciona un archivo Excel.',
+            'file_excel.file' => 'El archivo subido no es válido.',
+            'file_excel.mimes' => 'Solo se aceptan archivos con extensión .xlsx, .xls o .csv.',
+            'stock_days.required' => 'Debes seleccionar los días de stock.',
+            'stock_days.integer' => 'Los días de stock deben ser un número entero.',
+            'stock_days.min' => 'Los días de stock deben ser al menos 1.',
+            'stock_days.max' => 'Los días de stock no pueden ser más de 10.',
+        ]);
+
         $startTime = Carbon::now();
-        // Log::info('Inicio de la carga del archivo Excel.');
 
         // Obtener el archivo
-        $path = $request->file('file_excel');
-        // Log::info('Archivo recibido: ' . $path->getClientOriginalName());
+        $path = $validated['file_excel'];
+        $stockDays = $validated['stock_days'];
 
         try {
             // Realizar la importación
-           // Log::info('Iniciando la importación de datos desde el archivo Excel...');
-            Excel::import(new PartNumbersImport, $path);
-            // Log::info('Importación completada.');
+            $import = new PartNumbersImport($stockDays);
+            Excel::import($import, $path);
 
             // Obtener los datos
-            // Log::info('Obteniendo datos de la importación...');
             $getForecastData = PartNumbersImport::getForecastData();
             $getStockData = PartNumbersImport::getStockData();
             $getContainersData = PartNumbersImport::getContainersData();
 
             // Verificar si los datos de containers son un array
             if (!is_array($getContainersData)) {
-                // Log::info('Los datos de containers no son un array, convirtiendo...');
                 $getContainersData = [$getContainersData];
+            }
+
+            // Crear un mapa de part_numbers para búsqueda rápida
+            $stockPartNumbersMap = [];
+            foreach ($getStockData as $stockItem) {
+                $cleanPart = trim($stockItem['part_number']);
+                $stockPartNumbersMap[$cleanPart] = true;
+            }
+
+            // Filtrar forecast_data
+            $filteredForecastData = [];
+            foreach ($getForecastData as $forecastItem) {
+                $cleanPart = trim($forecastItem['part_number']);
+                if (isset($stockPartNumbersMap[$cleanPart])) {
+                    $filteredForecastData[] = $forecastItem;
+                }
             }
 
             // Combinar los datos
             $combinedData = [
-                'forecast_data' => $getForecastData,
+                'forecast_data' => $filteredForecastData,
                 'stock_data' => $getStockData,
                 'containers_data' => $getContainersData
             ];
@@ -125,7 +150,6 @@ class PartNumberController extends Controller
 
             // Enviar la petición POST a la API de FastAPI
             $client = new Client();
-            // Log::info('Enviando datos a la API de FastAPI...');
 
             try {
                 $response = $client->post('http://192.168.130.49:9092/procesar_json/', [
@@ -136,23 +160,20 @@ class PartNumberController extends Controller
 
                 $responseData = json_decode($response->getBody(), true);
 
+                // Calcular el tiempo transcurrido
+                $endTime = Carbon::now();
+                $diff = $startTime->diff($endTime);
+                Log::alert("Diferencia: {$diff->h} horas, {$diff->i} minutos, {$diff->s} segundos, " . $diff->f * 1000 . " milisegundos.");
+
                 return Excel::download(
                     new DataSelectionExport($responseData),
                     'genum_' . now()->format('dmYHis') . '.xlsx'
                 );
             } catch (\Exception $apiException) {
                 Log::error('Error al hacer la petición a la API de FastAPI.', ['error' => $apiException->getMessage()]);
-//                return response()->json([
-//                    'success' => false,
-//                    'error' => $apiException->getMessage()
-//                ], 500);
             }
         } catch (\Exception $e) {
             Log::error('Error en el proceso de carga y procesamiento de datos.', ['error' => $e->getMessage()]);
-//            return response()->json([
-//                'success' => false,
-//                'error' => $e->getMessage()
-//            ], 500);
         }
     }
 }
