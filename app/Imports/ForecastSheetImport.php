@@ -11,6 +11,14 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class ForecastSheetImport implements ToCollection, WithHeadingRow
 {
+
+    protected $stockDays;
+
+    public function __construct($stockDays)
+    {
+        $this->stockDays = $stockDays;
+    }
+
     /**
      * @param Collection $collection
      */
@@ -39,7 +47,6 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
             return $a['date'] <=> $b['date'];
         });
 
-        // Variable para controlar cuántos días se han "liberado" por fechas omitidas
         $daysToMoveBack = 0;
 
         foreach ($dateColumns as $dateColumn) {
@@ -61,12 +68,10 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
                 if ($originalDate->format('N') <= 5) {
                     $daysToMoveBack++;
                 }
-                continue; // Saltamos esta fecha
+                continue;
             }
 
-            // Si llegamos aquí, la fecha tiene datos
-            // Calculamos la fecha ajustada: 3 días hábiles atrás + días acumulados por fechas omitidas
-            $totalDaysToGoBack = 3 + $daysToMoveBack;
+            $totalDaysToGoBack = $this->stockDays + $daysToMoveBack;
 
             $adjustedDate = $this->subtractBusinessDays($originalDate, $totalDaysToGoBack);
 
@@ -75,8 +80,6 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
                 $partNumber = $row['part_number'];
                 $quantity = $row[$dateKey] ?? 0;
 
-                // Guardamos el registro incluso si quantity es 0
-                // (según tu lógica original, se procesan todos los valores)
                 if ($quantity > 0) {
                     PartNumbersImport::$forecastData[] = [
                         'part_number' => $partNumber,
