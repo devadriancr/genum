@@ -165,15 +165,28 @@ class PartNumberController extends Controller
                 $diff = $startTime->diff($endTime);
                 Log::alert("Diferencia: {$diff->h} horas, {$diff->i} minutos, {$diff->s} segundos, " . $diff->f * 1000 . " milisegundos.");
 
+                // Guardar un indicador de éxito en la sesión
+                session()->flash('download_success', true);
+
                 return Excel::download(
                     new DataSelectionExport($responseData),
                     'genum_' . now()->format('dmYHis') . '.xlsx'
                 );
+
             } catch (\Exception $apiException) {
                 Log::error('Error al hacer la petición a la API de FastAPI.', ['error' => $apiException->getMessage()]);
+
+                return redirect()->back()->withErrors([
+                    'api_error' => 'Error al procesar los datos en el servidor. Por favor intenta nuevamente.'
+                ]);
             }
+
         } catch (\Exception $e) {
             Log::error('Error en el proceso de carga y procesamiento de datos.', ['error' => $e->getMessage()]);
+
+            return redirect()->back()->withErrors([
+                'general_error' => 'Error al procesar el archivo. Verifica que el formato sea correcto.'
+            ]);
         }
     }
 }
