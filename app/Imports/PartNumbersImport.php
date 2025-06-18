@@ -7,9 +7,15 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class PartNumbersImport implements WithMultipleSheets
 {
+    protected $stockDays;
     public static $forecastData = [];
     public static $stockData = [];
     public static $containersData = [];
+
+    public function __construct($stockDays)
+    {
+        $this->stockDays = $stockDays;
+    }
 
     /**
      *
@@ -17,7 +23,7 @@ class PartNumbersImport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            'Forecast' => new ForecastSheetImport(),
+            'Forecast' => new ForecastSheetImport($this->stockDays),
             'Stock' => new StockSheetImport(),
             'Containers' => new ContainersSheetImport(),
         ];
