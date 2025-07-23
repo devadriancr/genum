@@ -77,7 +77,6 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
                 }
             }
         }
-        dd(PartNumbersImport::$forecastData);
     }
 
     /**
