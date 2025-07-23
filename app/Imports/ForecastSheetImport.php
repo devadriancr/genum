@@ -11,7 +11,6 @@ use PhpOffice\PhpSpreadsheet\Shared\Date;
 
 class ForecastSheetImport implements ToCollection, WithHeadingRow
 {
-
     protected $stockDays;
 
     public function __construct($stockDays)
@@ -26,90 +25,84 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
     {
         PartNumbersImport::$forecastData = [];
 
-        // Obtener todas las fechas de los encabezados (excluyendo part_number)
-        $dateColumns = [];
+        // Detect zero-only business dates
+        $zeroDates = [];
         $firstRow = $collection->first();
+        $dateColumns = [];
 
         foreach ($firstRow as $key => $value) {
-            if ($key != 'part_number' && $value != '') {
-                $dateObj = $this->parseDate($key);
-                if ($dateObj) {
-                    $dateColumns[] = [
-                        'key' => $key,
-                        'date' => $dateObj
-                    ];
-                }
+            if ($key === 'part_number' || $value === '') {
+                continue;
             }
-        }
-
-        // Ordenar fechas cronológicamente
-        usort($dateColumns, function($a, $b) {
-            return $a['date'] <=> $b['date'];
-        });
-
-        $daysToMoveBack = 0;
-
-        foreach ($dateColumns as $dateColumn) {
-            $dateKey = $dateColumn['key'];
-            $originalDate = $dateColumn['date'];
-
-            // Verificar si TODA la columna está en cero
-            $hasAnyData = false;
+            $dateObj = $this->parseDate($key);
+            if (! $dateObj) {
+                continue;
+            }
+            // Check if entire column is zero
+            $hasAny = false;
             foreach ($collection as $row) {
-                if (isset($row[$dateKey]) && $row[$dateKey] > 0) {
-                    $hasAnyData = true;
+                if (($row[$key] ?? 0) > 0) {
+                    $hasAny = true;
                     break;
                 }
             }
-
-            if (!$hasAnyData) {
-                // Si toda la columna está en cero, incrementamos los días para retroceder
-                // Solo si es día hábil
-                if ($originalDate->format('N') <= 5) {
-                    $daysToMoveBack++;
-                }
-                continue;
+            // If zero-column on a business day, record
+            if (! $hasAny && $dateObj->isWeekday()) {
+                $zeroDates[] = $dateObj->format('Y-m-d');
             }
+            // Keep all date columns
+            $dateColumns[] = ['key' => $key, 'date' => $dateObj, 'hasAny' => $hasAny];
+        }
 
-            $totalDaysToGoBack = $this->stockDays + $daysToMoveBack;
+        // Sort date columns chronologically
+        usort($dateColumns, fn($a, $b) => $a['date'] <=> $b['date']);
 
-            $adjustedDate = $this->subtractBusinessDays($originalDate, $totalDaysToGoBack);
-
-            // Procesar todos los part numbers para esta fecha
+        // For each date with data, assign adjusted required_date
+        foreach ($dateColumns as $col) {
+            if (! $col['hasAny']) {
+                continue; // skip zero columns
+            }
+            $orig  = $col['date'];
+            $adj   = $this->subtractBusinessDaysSkippingZeros($orig, $this->stockDays, $zeroDates);
+            // Collect entries
             foreach ($collection as $row) {
-                $partNumber = $row['part_number'];
-                $quantity = $row[$dateKey] ?? 0;
-
-                if ($quantity > 0) {
+                $qty = $row[$col['key']] ?? 0;
+                if ($qty > 0) {
                     PartNumbersImport::$forecastData[] = [
-                        'part_number' => $partNumber,
-                        'required_quantity' => $quantity,
-                        'required_date' => $adjustedDate->format('Y-m-d'),
-                        'original_date' => $originalDate->format('Y-m-d'),
+                        'part_number'       => $row['part_number'],
+                        'required_quantity' => $qty,
+                        'required_date'     => $adj->format('Y-m-d'),
+                        'original_date'     => $orig->format('Y-m-d'),
                     ];
                 }
             }
         }
+        dd(PartNumbersImport::$forecastData);
     }
 
     /**
-     * Resta días hábiles (excluyendo fines de semana)
+     * Subtracts a given number of business days from a date,
+     * skipping weekends and any dates listed in zeroDates.
      */
-    private function subtractBusinessDays(Carbon $date, int $days)
+    private function subtractBusinessDaysSkippingZeros(Carbon $date, int $days, array $zeroDates)
     {
-        $adjustedDate = $date->copy();
-        $businessDaysSubtracted = 0;
+        $d = $date->copy();
+        $moved = 0;
 
-        while ($businessDaysSubtracted < $days) {
-            $adjustedDate->subDay();
-
-            // Si es día hábil (lunes=1 a viernes=5)
-            if ($adjustedDate->format('N') <= 5) {
-                $businessDaysSubtracted++;
+        while ($moved < $days) {
+            $d->subDay();
+            // Skip weekends
+            if (! $d->isWeekday()) {
+                continue;
             }
+            // Skip zero-data business days
+            if (in_array($d->format('Y-m-d'), $zeroDates, true)) {
+                continue;
+            }
+            $moved++;
         }
 
-        return $adjustedDate;
+        return $d;
     }
 
     /**
@@ -118,48 +111,37 @@ class ForecastSheetImport implements ToCollection, WithHeadingRow
     private function parseDate($dateInput)
     {
         try {
-            // Si es un número (fecha serial de Excel)
             if (is_numeric($dateInput)) {
                 return Carbon::instance(Date::excelToDateTimeObject($dateInput));
             }
 
-            // Si es un string, intentar parsearlo
             if (is_string($dateInput)) {
-                // Configurar Carbon para español
                 Carbon::setLocale('es');
-
-                // Intentar varios formatos comunes
                 $formats = [
-                    'd/m/Y',    // 19/06/2025
-                    'd-M-Y',    // 19-jun-2025
-                    'd-M',      // 19-jun
-                    'd-m',      // 19-06
-                    'd/m',      // 19/06
-                    'Y-m-d',    // 2025-06-19
+                    'd/m/Y',
+                    'd-M-Y',
+                    'd-M',
+                    'd-m',
+                    'd/m',
+                    'Y-m-d'
                 ];
-
-                foreach ($formats as $format) {
+                foreach ($formats as $f) {
                     try {
-                        $date = Carbon::createFromFormat($format, $dateInput);
-
-                        // Si no se especifica año, usar el año actual
-                        if (!strpos($format, 'Y')) {
-                            $date->year(date('Y'));
+                        $dt = Carbon::createFromFormat($f, $dateInput);
+                        if (! str_contains($f, 'Y')) {
+                            $dt->year(Carbon::now()->year);
                         }
-
-                        return $date;
+                        return $dt;
                     } catch (\Exception $e) {
-                        continue;
+                        // continue;
                     }
                 }
-
-                // Como último recurso, intentar parse automático
                 return Carbon::parse($dateInput);
             }
 
             return null;
         } catch (\Exception $e) {
-            Log::warning("No se pudo parsear la fecha: " . $dateInput . " - Error: " . $e->getMessage());
+            Log::warning("No se pudo parsear la fecha: {$dateInput}, Error: {$e->getMessage()}");
             return null;
         }
     }
