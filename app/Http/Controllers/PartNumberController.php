@@ -84,7 +84,9 @@ class PartNumberController extends Controller
     {
         $validated = $request->validate([
             'file_excel' => 'required|file|mimes:xlsx,xls,csv',
-            'stock_days' => 'required|integer|min:1|max:10'
+            'stock_days' => 'required|integer|min:1|max:10',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date'
         ], [
             'file_excel.required' => 'Por favor selecciona un archivo Excel.',
             'file_excel.file' => 'El archivo subido no es válido.',
@@ -93,17 +95,24 @@ class PartNumberController extends Controller
             'stock_days.integer' => 'Los días de stock deben ser un número entero.',
             'stock_days.min' => 'Los días de stock deben ser al menos 1.',
             'stock_days.max' => 'Los días de stock no pueden ser más de 10.',
+            'start_date.required' => 'La fecha de inicio es obligatoria.',
+            'start_date.date' => 'La fecha de inicio debe ser una fecha válida.',
+            'end_date.required' => 'La fecha de finalización es obligatoria.',
+            'end_date.date' => 'La fecha de finalización debe ser una fecha válida.',
+            'end_date.after_or_equal' => 'La fecha de finalización debe ser igual o posterior a la fecha de inicio.',
         ]);
 
         $startTime = Carbon::now();
 
-        // Obtener el archivo
+        // Obtener los datos del formulario
         $path = $validated['file_excel'];
         $stockDays = $validated['stock_days'];
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
 
         try {
-            // Realizar la importación
-            $import = new PartNumbersImport($stockDays);
+            // Realizar la importación con las fechas
+            $import = new PartNumbersImport($stockDays, $startDate, $endDate);
             Excel::import($import, $path);
 
             // Obtener los datos

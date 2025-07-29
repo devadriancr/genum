@@ -8,13 +8,17 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 class PartNumbersImport implements WithMultipleSheets
 {
     protected $stockDays;
+    protected $startDate;
+    protected $endDate;
     public static $forecastData = [];
     public static $stockData = [];
     public static $containersData = [];
 
-    public function __construct($stockDays)
+    public function __construct($stockDays, $startDate = null, $endDate = null)
     {
         $this->stockDays = $stockDays;
+        $this->startDate = $startDate;
+        $this->endDate = $endDate;
     }
 
     /**
@@ -23,7 +27,7 @@ class PartNumbersImport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            'Forecast' => new ForecastSheetImport($this->stockDays),
+            'Forecast' => new ForecastSheetImport($this->stockDays, $this->startDate, $this->endDate),
             'Stock' => new StockSheetImport(),
             'Containers' => new ContainersSheetImport(),
         ];
@@ -60,7 +64,6 @@ class PartNumbersImport implements WithMultipleSheets
         $groupedByPartNumberAndDate = $allChildren->groupBy(function ($item) {
             return $item['part_number'] . '-' . $item['required_date'];
         });
-
 
         $finalResult = $groupedByPartNumberAndDate->map(function ($group) {
             $totalQuantity = $group->sum('required_quantity');

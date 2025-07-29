@@ -62,6 +62,25 @@
                         </div>
                     </div>
 
+                    <!-- Campos de fecha -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Fecha de inicio -->
+                        <div class="flex flex-col">
+                            <label for="start_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de Inicio</label>
+                            <input type="date" id="start_date" name="start_date" required
+                                   value="{{ old('start_date') }}"
+                                   class="block w-full h-[46px] text-gray-700 dark:text-white bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-300 ease-in-out">
+                        </div>
+
+                        <!-- Fecha de fin -->
+                        <div class="flex flex-col">
+                            <label for="end_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de Finalización</label>
+                            <input type="date" id="end_date" name="end_date" required
+                                   value="{{ old('end_date') }}"
+                                   class="block w-full h-[46px] text-gray-700 dark:text-white bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-300 ease-in-out">
+                        </div>
+                    </div>
+
                     <!-- Botón de enviar  -->
                     <div class="pt-4">
                         <button type="submit" class="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-300 ease-in-out shadow-lg hover:shadow-xl">
